@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: 2010-09-09
+Resources:
+    VPCDev:
+        Type: AWS::EC2::VPC
+        Properties:
+            CidrBlock: 172.31.0.0/16
+            EnableDnsSupport: true
+            EnableDnsHostnames: true
+            InstanceTenancy: default
+
+    SGDev:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: "Enable SSH in, all traffic out"
+            VpcId: !Ref VPCDev
+            SecurityGroupIngress:
+                -   IpProtocol: tcp
+                    FromPort: "22"
+                    ToPort: "22"
+                    CidrIp: 0.0.0.0/0
+            SecurityGroupEgress:
+                -   IpProtocol: -1
+                    CidrIp: 0.0.0.0/0
+                     
+    InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        
+    VPCGatewayAttachment:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+            VpcId: !Ref VPCDev
+            InternetGatewayId: !Ref InternetGateway
+                    
+    PublicSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+            AvailabilityZone: "us-east-1a"
+            CidrBlock: 172.31.0.0/20
+            MapPublicIpOnLaunch: true
+            VpcId: !Ref VPCDev
+            
+    RouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId:
+                !Ref VPCDev
+                
+    InternetRoute:
+        Type: AWS::EC2::Route
+        DependsOn: InternetGateway
+        Properties:
+            DestinationCidrBlock: 0.0.0.0/0
+            GatewayId: !Ref InternetGateway
+            RouteTableId: !Ref RouteTable        
+            
+    PublicSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref RouteTable
+            SubnetId: !Ref PublicSubnet
+            
+    EC2Dev:
+        Type: AWS::EC2::Instance
+        Properties:
+            InstanceType: t2.micro
+            ImageId: ami-97785bed
+            KeyName: Ec2EastKeyPair
+            SecurityGroupIds: [!Ref SGDev]
+            SubnetId: !Ref PublicSubnet
